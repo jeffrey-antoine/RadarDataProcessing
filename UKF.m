@@ -1,4 +1,3 @@
-% exercise1_part2
 % Jileil 2018-03-26
 clc;clear;close all;
 load trueTarget.mat;
