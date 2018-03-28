@@ -1,5 +1,5 @@
 % exercise1_part2
-% Jileil @Hasco 2018-03-26
+% Jileil 2018-03-26
 clc;clear;close all;
 load trueTarget.mat;
 rng(7);
@@ -19,7 +19,7 @@ for i = 1:length(r)
 end
 
 %%
-%****************Remember Only measurement equation is different***********
+%****************Assume Only measurement equation is different***********
 
 % x0_: mean of x0, initialization of status vector
 x0_ = [1000 1000 0 0]';
@@ -53,9 +53,8 @@ pnsigma = 1;
 processNoiseSigma = [pnsigma^2 0;0 pnsigma^2];
 % this is Q
 % noiseVector = chol(eye(2))*randn(2,1);
-% 过程噪声是预测过程中混入的噪声
-Q = B * processNoiseSigma * B';%[4*4] 过程噪声在高斯模型下是一个常量
-%*******************实践最原始的UKF*****************
+Q = B * processNoiseSigma * B';%[4*4]
+%*******************basic UKF*****************
 n = 4;
 L = 2 * n + 1;
 xPredict_linear_hat = zeros(4,151);
@@ -67,21 +66,21 @@ pEstimate = zeros(16,151);
 
 R = [100^2 0;0 5^2];
 
-pPredict_sigmaPoint = zeros(L*16,151); % 对每一个sigma Point 都有一个协方差矩阵的预测
-zPredict_sigmaPoint = zeros(2,L); % K时刻对每一个sigma Point 都有一个量测的预测
+pPredict_sigmaPoint = zeros(L*16,151); % for each sigma Point, there is a P
+zPredict_sigmaPoint = zeros(2,L); % for each sigma point, there is a measurement predict
 xPredict_sigmaPoint = zeros(4,L);  % 4, L
 delta_x = zeros(1,n);
 w0 = 1/9;
-wi = (1 - w0)/(2*n); % 表示所有的点都是等权重么？
+wi = (1 - w0)/(2*n); % for this case, wi = w0
 %%
 for k = 2:151
-    % 基于过程方程仍是linear, 处理方式与LKF相同
+    % estimation is the same as LKF
     pEstimate_reshape = reshape(pEstimate(:,k - 1),4,4);
     xPredict_linear_hat(:,k) = A * xEstimate(:,k - 1); % 1-step-ahead vector of state forecasts
     pPredict_linear = A * reshape(pEstimate(: , k - 1),4 , 4) * A.' + Q; %[4 4] % 1-step-ahead covariance
     % generate sigma point
     [u,s] = svd(pPredict_linear);
-    xPredict_sigmaPoint(:,L) = xPredict_linear_hat(:,k); % x0 放在了sigmaPoint数列的最后
+    xPredict_sigmaPoint(:,L) = xPredict_linear_hat(:,k); % x0 is placed at the end of array
     delta_x = sqrt(n/(1-w0)) * u * sqrt(s); % get the square root of pEstimate and remain the same dimension
     
     %
@@ -91,23 +90,17 @@ for k = 2:151
         xPredict_sigmaPoint(:,i + n) = xPredict_linear_hat(:,k) - delta_x(:,i);
     end
     
-    
-    %xPredict_sigmaPoint(4*j-3:4*j ,k) = A * sigmaPoint(:,j); % 每一个sigma点的预测
-    %pPredict_sigmaPoint(16*j-15:16*j,k) = A * reshape(pEstimate(:,k - 1),4,4) * A.' + Q; % 每一个sigma点的预测协方差
-    %由于状态方程是线性的，所以预测值和预测协方差都应该是唯一的，不需要求和
-    %量测的预测
+    % measurement_prediction
     zPredict_sigmaPoint(1,:) = sqrt(xPredict_sigmaPoint(1,:).^2 + xPredict_sigmaPoint(2,:).^2);
     zPredict_sigmaPoint(2,:) = atan(xPredict_sigmaPoint(2,:)./xPredict_sigmaPoint(1,:))/pi*180;% radius to degree
-    %量测的协方差
-    %因为 wi = w0
+    % wi = w0 in this example
     zPredict = wi * sum(zPredict_sigmaPoint,2);
     zll = zPredict_sigmaPoint - repmat(zPredict,1,L);
     xll = xPredict_sigmaPoint - repmat(xPredict_linear_hat(:,k),1,L);
     P_zz =  R + wi * (zll * zll');
     P_xz = wi * (xll * zll');
     % kalman gain
-    K = P_xz / P_zz;
-    
+    K = P_xz / P_zz; 
     % correct the state
     xEstimate(:,k) = xPredict_linear_hat(:,k) + K * (Z_degree(:,k) - zPredict);
     % correct the covariance
@@ -129,6 +122,3 @@ polarplot(x_rd(2,:),x_rd(1,:),'g-*');
 polarplot(trueTarget_rd(2,:),trueTarget_rd(1,:),'b->');
 thetalim([0 90]);
 rlim([1000 3500]);
-
-%     xPredict_reshape = reshape(xPredict(:,k),4,[]);
-%     xPredict_sumSigma_hat(:,k) = wi * sum(xPredict_reshape(:,1:end - 1,2)) + w0 * xPredict_reshape(:,end); % x 的预测
