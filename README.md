@@ -1,2 +1,2 @@
 # Radar
-some basic algorithms in radar data processing
+Implementations of some basic algorithms in radar data processing
